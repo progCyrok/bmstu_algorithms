@@ -9,375 +9,247 @@
 Для методов, требующих ключа определенного вида, например для перестановок, ключ должен формироваться на основании одного произвольного ключа, задаваемого пользователем. 
 Пример ключа: фф12К52. Зашифрованный и дешифрованный тексты должны быть идентичными.
 
-
+### **Шифр Хилла**
 ```python
-class Node:
-    def __init__(self, data):
-        self.data = data
-        self.left = None
-        self.right = None
+import numpy as np
+import math
 
 
-class BinarySearchTree:
-    def __init__(self):
-        self.root = None
+def generate_hill_matrix(key_str):
+    n = 2
+    key_bytes = key_str.encode('utf-8')
+    key_len = len(key_bytes)
+    if key_len < n * n:
+        key_bytes = key_bytes * (n * n // key_len + 1)
 
-    def is_empty(self):
-        return self.root is None
-
-    def insert(self, data):
-        if self.root is None:
-            self.root = Node(data)
-        else:
-            self._insert_recursive(self.root, data)
-
-    def _insert_recursive(self, node, data):
-        if data < node.data:
-            if node.left is None:
-                node.left = Node(data)
-            else:
-                self._insert_recursive(node.left, data)
-        else:
-            if node.right is None:
-                node.right = Node(data)
-            else:
-                self._insert_recursive(node.right, data)
-
-    def search(self, data):
-        return self._search_recursive(self.root, data)
-
-    def _search_recursive(self, node, data):
-        if node is None or node.data == data:
-            return node
-        if data < node.data:
-            return self._search_recursive(node.left, data)
-        return self._search_recursive(node.right, data)
-
-    def delete(self, data):
-        if self.is_empty():
-            print("Дерево пустое. Удаление невозможно.")
-            return
-
-        self.root = self._delete_recursive(self.root, data)
-
-    def _delete_recursive(self, node, data):
-        if node is None:
-            return node
-
-        if data < node.data:
-            node.left = self._delete_recursive(node.left, data)
-        elif data > node.data:
-            node.right = self._delete_recursive(node.right, data)
-        else:
-            if node.left is None:
-                return node.right
-            elif node.right is None:
-                return node.left
-            else:
-                min_node = self._find_min(node.right)
-                node.data = min_node.data
-                node.right = self._delete_recursive(node.right, min_node.data)
-
-        return node
-
-    def _find_min(self, node):
-        while node.left:
-            node = node.left
-        return node
-
-    def inorder_traversal(self):
-        result = []
-        self._inorder_recursive(self.root, result)
-        return result
-
-    def _inorder_recursive(self, node, result):
-        if node:
-            self._inorder_recursive(node.left, result)
-            result.append(node.data)
-            self._inorder_recursive(node.right, result)
-    def preorder_traversal(self):
-        result = []
-        self._preorder_recursive(self.root, result)
-        return result
-
-    def _preorder_recursive(self, node, result):
-        if node:
-            result.append(node.data)
-            self._preorder_recursive(node.left, result)
-            self._preorder_recursive(node.right, result)
-
-    def postorder_traversal(self):
-        result = []
-        self._postorder_recursive(self.root, result)
-        return result
-
-    def _postorder_recursive(self, node, result):
-        if node:
-            self._postorder_recursive(node.left, result)
-            self._postorder_recursive(node.right, result)
-            result.append(node.data)
-
-    def print_tree(self):
-        if self.is_empty():
-            print("Дерево пустое")
-            return
-        self._print_tree_recursive(self.root, "", True)
+    for i in range(10):
+        key_nums = [int(key_bytes[(i + j) % len(key_bytes)]) for j in range(n * n)]
+        matrix = np.array(key_nums).reshape((n, n))
+        if math.gcd(round(np.linalg.det(matrix)) % 256, 256) == 1:
+            return matrix
+    print("Не удалось сгенерировать обратимую матрицу. Попробуйте другой ключ.")
+    return None
 
 
-    def _print_tree_recursive(self, node, indent, last):
-        if node:
-            print(indent, end="")
-            if last:
-                print("└──", end="")
-                indent += "   "
-            else:
-                print("├──", end="")
-                indent += "|  "
+def matrix_mod_inverse(matrix, modulus):
+    det = round(np.linalg.det(matrix)) % modulus
+    if math.gcd(det, modulus) != 1:
+        raise ValueError("Определитель не взаимно прост с модулем, матрица необратима!")
 
-            print(node.data)
-            self._print_tree_recursive(node.left, indent, False)
-            self._print_tree_recursive(node.right, indent, True)
-
-    def height(self):
-        return self._height_rec(self.root)
-
-    def _height_rec(self, node):
-        if node is None:
-            return -1
-        return 1 + max(self._height_rec(node.left), self._height_rec(node.right))
+    det_inv = pow(det, -1, modulus)
+    adj = np.round(np.linalg.det(matrix) * np.linalg.inv(matrix)).astype(int)
+    return (adj * det_inv) % modulus
 
 
+def text_to_matrix(text):
+    n = 2
+    nums = [ord(c) for c in text]
 
-# Тесты
-bst = BinarySearchTree()
+    padding_len = (n - len(nums) % n) % n
+    nums.extend([0] * padding_len)
 
-print("Проверка пустого дерева:", bst.is_empty())  # True
-
-bst.insert(8)
-bst.insert(3)
-bst.insert(10)
-bst.insert(1)
-bst.insert(6)
-bst.insert(14)
-bst.insert(4)
-bst.insert(7)
-bst.insert(13)
+    return np.array(nums).reshape(-1, n)
 
 
-print("Прямой обход:", bst.preorder_traversal())  # [8, 3, 1, 6, 4, 7, 10, 14, 13]
-print("Симметричный обход:", bst.inorder_traversal())  # [1, 3, 4, 6, 7, 8, 10, 13, 14]
-print("Обратный обход:", bst.postorder_traversal())  # [1, 4, 7, 6, 3, 13, 14, 10, 8]
-
-print("Печать дерева:")
-bst.print_tree()
-
-print("Поиск значения 6:", bst.search(6).data if bst.search(6) else "Значение не найдено")  # 6
-print("Поиск значения 15:", bst.search(15) if bst.search(15) else "Значение не найдено")  # Значение не найдено
-
-print("Высота дерева:", bst.height())  # 4
-
-bst.delete(8)
-print("Дерево после удаления 8:")
-bst.print_tree()
-print("Симметричный обход после удаления 8:", bst.inorder_traversal()) # [1, 3, 4, 6, 7, 10, 13, 14]
+def matrix_to_text(matrix):
+    return ''.join(chr(i) for row in matrix for i in row)
 
 
-bst.delete(1)
-print("Дерево после удаления 1:")
-bst.print_tree()
-print("Симметричный обход после удаления 1:", bst.inorder_traversal()) # [3, 4, 6, 7, 10, 13, 14]
+def encrypt_hill(text, key_matrix):
+    text_matrix = text_to_matrix(text)
+    encrypted_matrix = (text_matrix @ key_matrix) % 256
+    return matrix_to_text(encrypted_matrix)
+
+
+def decrypt_hill(encrypted_text, key_matrix):
+    encrypted_matrix = text_to_matrix(encrypted_text)
+    inv_key_matrix = matrix_mod_inverse(key_matrix, 256)
+    decrypted_matrix = (encrypted_matrix @ inv_key_matrix) % 256
+    return matrix_to_text(decrypted_matrix)
+
+
+if __name__ == "__main__":
+    user_key = input("Введите произвольный ключ: ")
+    key_matrix = generate_hill_matrix(user_key)
+    if key_matrix is None:
+        exit()
+
+    text = input("Введите текст для шифрования: ")
+
+    encrypted_text = encrypt_hill(text, key_matrix)
+    print("Зашифрованный текст:", encrypted_text)
+
+    decrypted_text = decrypt_hill(encrypted_text, key_matrix)[:-1]
+    print("Расшифрованный текст:", decrypted_text)
+
+    if text == decrypted_text:
+        print("Шифрование и расшифрование прошли успешно")
+    else:
+        print("Ошибка: расшифрованный текст не совпадает с оригинальным!")
+
+# Введите произвольный ключ: dsf22h3h
+# Введите текст для шифрования: hello
+# Зашифрованный текст: ,´d
+# Расшифрованный текст: hello
+# Шифрование и расшифрование прошли успешно
 
 ```
 
-### **Задание №2**
-**2.** Реализовать самобалансирующееся дерево (AVL-дерево для четных вариантов, красно-черное дерево для нечетных вариантов)
-
+### **Криптосистема Крамера – Шоупа**
 
 ```python
-class Node:
-    def __init__(self, key):
-        self.key = key
-        self.left = None
-        self.right = None
-        self.height = 1
+import random
+from hashlib import sha256
+
+def gcd(a, b):
+    while b:
+        a, b = b, a % b
+    return a
 
 
-class AVLTree:
-    def __init__(self):
-        self.root = None
+def power(base, exp, modulus):
+    result = 1
+    base = base % modulus
+    while exp > 0:
+        if exp % 2 == 1:
+            result = (result * base) % modulus
+        base = (base * base) % modulus
+        exp //= 2
+    return result
 
-    def _getHeight(self, node):
-        if not node:
-            return 0
-        return node.height
 
-    def _getBalance(self, node):
-        if not node:
-            return 0
-        return self._getHeight(node.left) - self._getHeight(node.right)
+def mod_inverse(a, m):
+    m0, x0, x1 = m, 0, 1
+    while a > 1:
+        q = a // m
+        m, a = a % m, m
+        x0, x1 = x1 - q * x0, x0
+    if x1 < 0:
+        x1 += m0
+    return x1
 
-    def _rotateRight(self, z):
-        y = z.left
-        T2 = y.right
 
-        y.right = z
-        z.left = T2
+# Генерация ключей
+def generate_keys(key_size=1024):
+    p = generate_large_prime(key_size // 2)
+    q = generate_large_prime(key_size // 2)
+    n = p * q
 
-        z.height = 1 + max(self._getHeight(z.left), self._getHeight(z.right))
-        y.height = 1 + max(self._getHeight(y.left), self._getHeight(y.right))
+    g = find_generator(n)
 
-        return y
+    x1 = random.randint(1, n - 1)
+    x2 = random.randint(1, n - 1)
+    y1 = random.randint(1, n - 1)
+    y2 = random.randint(1, n - 1)
+    z = random.randint(1, n - 1)
 
-    def _rotateLeft(self, z):
-        y = z.right
-        T2 = y.left
+    c = power(g, x1, n)
+    d = power(g, x2, n)
+    h = power(g, z, n)
+    u = (power(g, y1, n) * power(h, y2, n)) % n
 
-        y.left = z
-        z.right = T2
+    public_key = (n, g, c, d, u, h)
+    private_key = (x1, x2, y1, y2, z)
 
-        z.height = 1 + max(self._getHeight(z.left), self._getHeight(z.right))
-        y.height = 1 + max(self._getHeight(y.left), self._getHeight(y.right))
+    return public_key, private_key
 
-        return y
 
-    def _insertRecursive(self, node, key):
-        if not node:
-            return Node(key)
+def generate_large_prime(bits):
+    while True:
+        num = random.getrandbits(bits)
+        num |= (1 << (bits - 1)) | 1
+        if is_prime(num):
+            return num
 
-        if key < node.key:
-            node.left = self._insertRecursive(node.left, key)
+
+def is_prime(num, k=5):
+    if num <= 1: return False
+    if num <= 3: return True
+    if num % 2 == 0: return False
+
+    r, s = num - 1, 0
+    while r % 2 == 0:
+        r //= 2
+        s += 1
+
+    for _ in range(k):
+        a = random.randint(2, num - 2)
+        x = power(a, r, num)
+        if x == 1 or x == num - 1: continue
+
+        for _ in range(s - 1):
+            x = power(x, 2, num)
+            if x == num - 1: break
         else:
-            node.right = self._insertRecursive(node.right, key)
-
-        node.height = 1 + max(self._getHeight(node.left), self._getHeight(node.right))
-
-        balance = self._getBalance(node)
-
-        if balance > 1 and key < node.left.key:
-            return self._rotateRight(node)
-
-        if balance < -1 and key > node.right.key:
-            return self._rotateLeft(node)
-
-        if balance > 1 and key > node.left.key:
-            node.left = self._rotateLeft(node.left)
-            return self._rotateRight(node)
-
-        if balance < -1 and key < node.right.key:
-            node.right = self._rotateRight(node.right)
-            return self._rotateLeft(node)
-
-        return node
-
-    def insert(self, key):
-        self.root = self._insertRecursive(self.root, key)
+            return False
+    return True
 
 
-    def _findMinNode(self, node):
-        if node is None or node.left is None:
-            return node
-        return self._findMinNode(node.left)
+def find_generator(n):
+    for i in range(2, n):
+        if gcd(i, n) == 1:
+            return i
+    return 2
 
 
-    def _deleteRecursive(self, node, key):
-        if not node:
-            return node
+# Шифрование
+def encrypt(public_key, message):
+    n, g, c, d, u, h = public_key
+    r = random.randint(1, n - 1)
 
-        if key < node.key:
-            node.left = self._deleteRecursive(node.left, key)
-        elif key > node.key:
-            node.right = self._deleteRecursive(node.right, key)
-        else:
-            if node.left is None:
-                temp = node.right
-                node = None
-                return temp
-            elif node.right is None:
-                temp = node.left
-                node = None
-                return temp
-            temp = self._findMinNode(node.right)
-            node.key = temp.key
-            node.right = self._deleteRecursive(node.right, temp.key)
+    v = power(g, r, n)
+    e = power(u, r, n)
 
-        if node is None:
-            return node
+    m_int = int.from_bytes(message.encode(), byteorder='big')
+    w = (m_int * power(h, r, n)) % n
 
-        node.height = 1 + max(self._getHeight(node.left), self._getHeight(node.right))
+    a_hash = hash_message((v, w), n)
+    x = (power(c, r, n) * power(d, r * a_hash, n)) % n
 
-        balance = self._getBalance(node)
-
-        if balance > 1 and self._getBalance(node.left) >= 0:
-            return self._rotateRight(node)
-
-        if balance < -1 and self._getBalance(node.right) <= 0:
-            return self._rotateLeft(node)
-
-        if balance > 1 and self._getBalance(node.left) < 0:
-            node.left = self._rotateLeft(node.left)
-            return self._rotateRight(node)
-
-        if balance < -1 and self._getBalance(node.right) > 0:
-            node.right = self._rotateRight(node.right)
-            return self._rotateLeft(node)
-
-        return node
-
-    def delete(self, key):
-        self.root = self._deleteRecursive(self.root, key)
-
-    def search(self, key):
-        node = self.root
-        while node:
-            if key == node.key:
-                return True
-            elif key < node.key:
-                node = node.left
-            else:
-                node = node.right
-        return False
-
-    def inorder_traversal(self, node):
-        if node:
-            self.inorder_traversal(node.left)
-            print(node.key, end=" ")
-            self.inorder_traversal(node.right)
-
-    def print_tree(self, node, level=0):
-        if node is None:
-            return
-
-        self.print_tree(node.right, level + 1)
-        print("  " * level + str(node.key))
-        self.print_tree(node.left, level + 1)
+    ciphertext = (v, w, x)
+    return ciphertext
 
 
-myTree = AVLTree()
+# Дешифрование
+def decrypt(public_key, private_key, ciphertext):
+    n, g, c, d, u, h = public_key
+    x1, x2, y1, y2, z = private_key
 
-myTree.insert(10)
-myTree.insert(20)
-myTree.insert(30)
-myTree.insert(40)
-myTree.insert(50)
-myTree.insert(25)
+    v, w, x = ciphertext
 
-print("Дерево AVL")
-myTree.print_tree(myTree.root)
+    a_hash = hash_message((v, w), n)
+    check = (power(v, x1, n) * power(power(v, x2, n), a_hash, n)) % n
 
-print("Порядок дерева AVL")
-myTree.inorder_traversal(myTree.root)
+    if check != x:
+        raise ValueError("Неверный шифротекст!")
+
+    m_int = (w * mod_inverse(power(v, z, n), n)) % n
+
+    return m_int.to_bytes((m_int.bit_length() + 7) // 8, byteorder='big').decode()
 
 
-print("Поиск 25:", myTree.search(25))  # True
-print("Поиск 100:", myTree.search(100)) # False
+def hash_message(message, n):
+    concat_str = str(message[0]) + str(message[1])
+    hash_str = sha256(concat_str.encode()).hexdigest()
+    return int(hash_str, 16) % n
 
-myTree.delete(20)
 
-print("Обход по порядку после удаления 20:")
-myTree.inorder_traversal(myTree.root)
+if __name__ == "__main__":
+    public_key, private_key = generate_keys(1024)
 
-print("Дерево AVL")
-myTree.print_tree(myTree.root)
+    message = input("Введите текст для шифровки: ")
+    print(f"Изначальное сообщение: {message}")
+
+    # Шифрование
+    ciphertext = encrypt(public_key, message)
+    print(f"Зашифрованное сообщение: {ciphertext}")
+
+    # Дешифрование
+    try:
+        decrypted_message = decrypt(public_key, private_key, ciphertext)
+        print(f"Дешифрованное сообщение: {decrypted_message}")
+    except ValueError as e:
+        print(f"Ошибка при дешифровании: {e}")
 
 
 ```
@@ -432,6 +304,10 @@ root2.right.left = Node(4)
 
 print(f"Дерево симметрично: {is_symmetric(root2)}")  #  False
 
+# Введите текст для шифровки: hello
+# Изначальное сообщение: hello
+# Зашифрованное сообщение: (43058989597685896862201535077284569875886100107283379411140885788040332853836093338049770157299629376378001988774423845412270325690960558957189074336043714810638464180256387711909413956593965134144837087504738998056150210976207412621906248792753430435826437343133184044460473486027205163706531836787887304429, 40533528366980873886907385433784277735281551828052942109155024875728140123658436586674058570483507928779460692457942856339864126583989869615430500403600552286503760135660326087314131545342828182127417854014305516140770605957115664467166041622970277100083076081863604051761642761522761398916020759662560480805, 34764974056321698648544306456795989779878152890328820430487971834092145185605940721315063024654048563556782283869458093259425106372175892020937416141797097306803647727965660400366867480781085433352844573094835027022969238824464299496192903114042131816472889015215240651538711585562220915296015798899836042398)
+# Дешифрованное сообщение: hello
 
 
 ```
@@ -439,108 +315,51 @@ print(f"Дерево симметрично: {is_symmetric(root2)}")  #  False
 
 ### **Контрольные вопросы**
 
-1. **С чем связана популярность использования деревьев в программировании?**  
-   Деревья популярны из-за их эффективности в организациях данных. Они обеспечивают быстрый доступ, вставку, удаление и поиск элементов, что делает их полезными для баз данных, системных приложений, графов и индексов.
+1) Что такое симметричные криптоалгоритмы?
+Симметричные криптоалгоритмы используют один и тот же ключ как для шифрования, так и для расшифровки данных. Примеры: AES, DES, шифр Вернама.
 
-2. **Можно ли список отнести к деревьям? Ответ обоснуйте.**  
-   Список не является деревом, так как он имеет линейную структуру, где каждый элемент связан только с одним соседом. Дерево — это иерархическая структура, где у одного узла может быть несколько потомков.
+2) Что такое асимметричные криптоалгоритмы?
+Асимметричные криптоалгоритмы используют пару ключей: открытый для шифрования и закрытый для расшифровки. Примеры: RSA, алгоритм Эль-Гамаля.
 
-3. **Какие данные содержат адресные поля элемента бинарного дерева?**  
-   Адресные поля содержат ссылки на левого и правого потомка, а также на родительский узел (в некоторых реализациях).
+3) Классификация симметричных криптоалгоритмов.
+По типу данных: блочные, поточные.
+По методу шифрования: подстановки, перестановки, комбинированные.
+По типу ключей: фиксированный, динамический.
 
-4. **Что такое дерево, двоичное дерево, поддерево?**  
-   - **Дерево** — иерархическая структура данных с корнем и узлами, связанными ребрами.  
-   - **Двоичное дерево** — дерево, где каждый узел имеет не более двух потомков.  
-   - **Поддерево** — часть дерева, представляющая собой самостоятельное дерево, начиная с определенного узла.
+4) Классификация асимметричных криптоалгоритмов.
+По области применения: шифрование, цифровая подпись, обмен ключами.
+По математическим основам: алгоритмы на основе разложения на множители (RSA), алгоритмы на эллиптических кривых, алгоритмы на основе дискретного логарифма.
 
-5. **Как рекурсивно определяется дерево?**  
-   Дерево состоит из корня и набора поддеревьев, которые также являются деревьями. Базовый случай: пустое дерево.
+5) Обобщенная схема симметричной криптосистемы.
+Сообщение шифруется с помощью симметричного ключа.
+Ключ передаётся между сторонами защищённым каналом.
+Получатель использует тот же ключ для расшифровки.
 
-6. **Какие основные понятия связываются с деревьями?**  
-   Корень, узел, лист, высота, глубина, поддерево, родители, потомки, степень узла.
+6) Блочные и поточные шифры.
+Блочные шифры обрабатывают данные блоками фиксированной длины (например, AES). Поточные шифры работают с данными побитно или посимвольно (например, RC4).
 
-7. **Какие основные операции характерны при использовании деревьев?**  
-   Обход (прямой, симметричный, обратный), поиск, добавление, удаление, балансировка.
+7) Какие методы подстановки, используемые для шифрования, вы знаете?
+Шифр Цезаря.
+Шифр Виженера.
+Шифр Вернама.
+Шифр Атбаш.
+8) Какие методы перестановки, используемые для шифрования, вы знаете?
+Простая перестановка символов в тексте.
+Перестановка по ключу (например, с использованием числовой последовательности).
+9) Что понимается под шифрованием информации методом гаммирования?
+Гаммирование — это метод шифрования, в котором к открытому тексту применяется побитовое или посимвольное сложение с ключевой последовательностью (гаммой).
 
-8. **Как программно реализуется алгоритм операции обхода дерева?**  
-   Обход дерева реализуется с помощью рекурсивных функций или стека. Например:  
-   ```python
-   def inorder_traversal(node):
-       if node:
-           inorder_traversal(node.left)
-           print(node.key)
-           inorder_traversal(node.right)
-   ```
+10) Что называется ключом в криптосистеме?
+Ключ — это уникальная информация (набор данных), используемая для шифрования и расшифровки сообщений.
 
-9. **Как программно реализуется алгоритм операции добавления элемента в дерево?**  
-   Например, для бинарного дерева поиска:  
-   ```python
-   def insert(node, key):
-       if not node:
-           return Node(key)
-       if key < node.key:
-           node.left = insert(node.left, key)
-       else:
-           node.right = insert(node.right, key)
-       return node
-   ```
+11) Разовый блокнот.
+Разовый блокнот — это шифр, использующий случайно сгенерированную гамму длиной, равной длине сообщения. Он абсолютно криптостойкий, если гамма используется только один раз.
 
-10. **Как программно реализуется алгоритм операции удаления элемента из дерева?**  
-   В случае бинарного дерева:  
-      * Найти узел.  
-      * Если у узла 0 или 1 потомок — удалить и заменить.  
-      * Если 2 потомка — найти преемника (минимальный элемент правого поддерева), заменить и удалить.  
+12) Что такое криптостойкость системы?
+Криптостойкость — это мера защищённости криптосистемы от взлома. Она зависит от сложности алгоритма, длины ключа и устойчивости к атакам.
 
-   Пример:  
-   ```python
-   def delete(node, key):
-       if not node:
-           return node
-       if key < node.key:
-           node.left = delete(node.left, key)
-       elif key > node.key:
-           node.right = delete(node.right, key)
-       else:
-           if not node.left:
-               return node.right
-           if not node.right:
-               return node.left
-           temp = find_min(node.right)
-           node.key = temp.key
-           node.right = delete(node.right, temp.key)
-       return node
-   ```
-
-11. **Как программно реализуется алгоритм операции поиска элемента в дереве?**  
-   Для бинарного дерева поиска:  
-   ```python
-   def search(node, key):
-       if not node or node.key == key:
-           return node
-       if key < node.key:
-           return search(node.left, key)
-       return search(node.right, key)
-   ```
-
-12. **Что такое самобалансирующееся дерево?**  
-   Это дерево, которое автоматически поддерживает свою высоту минимально возможной после операций вставки и удаления, обеспечивая эффективность.
-
-13. **Как определяется количество узлов в самобалансирующемся дереве?**  
-   Максимальное количество узлов при высоте `h` соответствует \(2^h - 1\), минимальное — для конкретной структуры (например, AVL или красно-черных деревьев).
-
-14. **Как происходит добавление элемента в самобалансирующееся дерево?**  
-   Добавление выполняется аналогично бинарному дереву, но с последующей балансировкой (например, с помощью поворотов или перекраски).
-
-15. **Как происходит удаление элемента из самобалансирующееся дерево?**  
-   Удаление включает поиск элемента, удаление по правилам бинарного дерева и последующую балансировку.
-
-16. **Особенности красно-черных деревьев.**  
-   - Каждый узел окрашен в красный или черный цвет.  
-   - Корень всегда черный.  
-   - Красный узел не может иметь красных потомков.  
-   - Все пути от узла до листа содержат одинаковое количество черных узлов.  
-
-17. **Особенности АВЛ деревьев.**  
-   - Высота левого и правого поддеревьев для любого узла отличается не более чем на 1.  
-   - Обеспечивается балансировка после вставки или удаления.  
-   - Подходит для частого поиска.
+13) Правила использования ключа.
+Ключ должен быть случайным.
+Должен передаваться по защищённому каналу.
+Не использовать один ключ для разных сообщений.
+Должен быть недоступен третьим лицам.

@@ -1,78 +1,81 @@
 import numpy as np
-from numpy.linalg import inv
-from math import gcd
+import math
 
 
-# Функция для получения алфавита и определения его размера
-def prepare_alphabet():
-    alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-    return alphabet, len(alphabet)
+def generate_hill_matrix(key_str):
+    n = 2
+    key_bytes = key_str.encode('utf-8')
+    key_len = len(key_bytes)
+    if key_len < n * n:
+        key_bytes = key_bytes * (n * n // key_len + 1)
+
+    for i in range(10):
+        key_nums = [int(key_bytes[(i + j) % len(key_bytes)]) for j in range(n * n)]
+        matrix = np.array(key_nums).reshape((n, n))
+        if math.gcd(round(np.linalg.det(matrix)) % 256, 256) == 1:
+            return matrix
+    print("Не удалось сгенерировать обратимую матрицу. Попробуйте другой ключ.")
+    return None
 
 
-# Преобразование текста в числовой вид
-def text_to_numbers(text, alphabet):
-    return [alphabet.index(char) for char in text if char in alphabet]
+def matrix_mod_inverse(matrix, modulus):
+    det = round(np.linalg.det(matrix)) % modulus
+    if math.gcd(det, modulus) != 1:
+        raise ValueError("Определитель не взаимно прост с модулем, матрица необратима!")
+
+    det_inv = pow(det, -1, modulus)
+    adj = np.round(np.linalg.det(matrix) * np.linalg.inv(matrix)).astype(int)
+    return (adj * det_inv) % modulus
 
 
-# Преобразование чисел в текст
-def numbers_to_text(numbers, alphabet):
-    return ''.join(alphabet[i] for i in numbers)
+def text_to_matrix(text):
+    n = 2
+    nums = [ord(c) for c in text]
+
+    padding_len = (n - len(nums) % n) % n
+    nums.extend([0] * padding_len)
+
+    return np.array(nums).reshape(-1, n)
 
 
-# Создание ключевой матрицы
-def generate_key_matrix(key):
-    size = int(len(key) ** 0.5)  # размер матрицы
-    key_numbers = [ord(char.upper()) - ord('A') for char in key if char.isalpha()]
-
-    if len(key_numbers) < size ** 2:
-        raise ValueError("Ключ недостаточно длинный для матрицы!")
-
-    key_matrix = np.array(key_numbers)[:size ** 2].reshape(size, size)
-    if np.linalg.det(key_matrix) % 26 == 0:
-        raise ValueError("Определитель ключевой матрицы не может быть нулем по модулю 26.")
-
-    return key_matrix
+def matrix_to_text(matrix):
+    return ''.join(chr(i) for row in matrix for i in row)
 
 
-# Шифрование текста
-def hill_encrypt(plain_text, key):
-    alphabet, n = prepare_alphabet()
-    key_matrix = generate_key_matrix(key)
-    plain_numbers = text_to_numbers(plain_text.upper(), alphabet)
-
-    # Дополняем текст до кратного размера матрицы
-    while len(plain_numbers) % key_matrix.shape[0] != 0:
-        plain_numbers.append(alphabet.index('X'))  # добавляем букву X в качестве заполнителя
-
-    plain_array = np.array(plain_numbers).reshape(-1, key_matrix.shape[0])
-    cipher_matrix = np.dot(plain_array, key_matrix) % 26
-    cipher_numbers = cipher_matrix.flatten()
-
-    return numbers_to_text(cipher_numbers, alphabet)
+def encrypt_hill(text, key_matrix):
+    text_matrix = text_to_matrix(text)
+    encrypted_matrix = (text_matrix @ key_matrix) % 256
+    return matrix_to_text(encrypted_matrix)
 
 
-# Расшифровка текста
-def hill_decrypt(cipher_text, key):
-    alphabet, n = prepare_alphabet()
-    key_matrix = generate_key_matrix(key)
-
-    # Находим обратную матрицу
-    key_matrix_inv = np.round(inv(key_matrix)).astype(int) % 26
-    cipher_numbers = text_to_numbers(cipher_text, alphabet)
-    cipher_array = np.array(cipher_numbers).reshape(-1, key_matrix.shape[0])
-    plain_matrix = np.dot(cipher_array, key_matrix_inv) % 26
-    plain_numbers = plain_matrix.flatten()
-
-    return numbers_to_text(plain_numbers, alphabet)
+def decrypt_hill(encrypted_text, key_matrix):
+    encrypted_matrix = text_to_matrix(encrypted_text)
+    inv_key_matrix = matrix_mod_inverse(key_matrix, 256)
+    decrypted_matrix = (encrypted_matrix @ inv_key_matrix) % 256
+    return matrix_to_text(decrypted_matrix)
 
 
-# Пример использования
 if __name__ == "__main__":
-    key = input("Введите ключ (используя буквы): ")
-    plaintext = input("Введите текст для шифрования: ")
+    user_key = input("Введите произвольный ключ: ")
+    key_matrix = generate_hill_matrix(user_key)
+    if key_matrix is None:
+        exit()
 
-    encrypted_text = hill_encrypt(plaintext, key)
-    print(f"Зашифрованный текст: {encrypted_text}")
+    text = input("Введите текст для шифрования: ")
 
-    decrypted_text = hill_decrypt(encrypted_text, key)
-    print(f"Расшифрованный текст: {decrypted_text}")
+    encrypted_text = encrypt_hill(text, key_matrix)
+    print("Зашифрованный текст:", encrypted_text)
+
+    decrypted_text = decrypt_hill(encrypted_text, key_matrix)[:-1]
+    print("Расшифрованный текст:", decrypted_text)
+
+    if text == decrypted_text:
+        print("Шифрование и расшифрование прошли успешно")
+    else:
+        print("Ошибка: расшифрованный текст не совпадает с оригинальным!")
+
+# Введите произвольный ключ: dsf22h3h
+# Введите текст для шифрования: hello
+# Зашифрованный текст: ,´d
+# Расшифрованный текст: hello
+# Шифрование и расшифрование прошли успешно
